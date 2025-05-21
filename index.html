@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Finder & Nearby Ads</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .location-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .btn-get-location {
+            background-color: #f0abfc; /* Light purple */
+            color: #581c87; /* Dark purple text */
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn-get-location:hover {
+            background-color: #e879f9; /* Slightly darker purple */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        }
+        .location-data span {
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem; /* rounded-md */
+        }
+        .ad-card {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .ad-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+        .ad-category {
+            background-color: #a855f7; /* Purple-500 */
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="location-card w-full max-w-lg p-8 rounded-xl text-white mb-8">
+        <h1 class="text-3xl font-bold text-center mb-6">My Location & Nearby Offers</h1>
+
+        <div class="text-center mb-6">
+            <button id="getLocationBtn" class="btn-get-location font-semibold py-3 px-6 rounded-lg text-lg">
+                Find My Location & Ads
+            </button>
+        </div>
+
+        <div id="locationInfo" class="text-center space-y-3 text-lg mb-6">
+            <p id="status" class="italic text-purple-200">Click the button to get your location and see nearby ads.</p>
+            <div id="coordinates" class="hidden space-y-1">
+                <p class="location-data">Latitude: <span id="latitude" class="font-semibold">---</span></p>
+                <p class="location-data">Longitude: <span id="longitude" class="font-semibold">---</span></p>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="mt-4 p-3 bg-red-600 text-white rounded-lg text-center hidden">
+            </div>
+    </div>
+
+    <div id="adsSection" class="w-full max-w-lg">
+        <h2 id="adsHeader" class="text-2xl font-semibold text-white text-center mb-4 hidden">Nearby Businesses</h2>
+        <div id="adsContainer" class="space-y-4">
+            </div>
+        <p id="noAdsMessage" class="text-center text-gray-400 mt-4 hidden">No businesses found within the specified range.</p>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const getLocationBtn = document.getElementById('getLocationBtn');
+        const statusP = document.getElementById('status');
+        const coordinatesDiv = document.getElementById('coordinates');
+        const latitudeSpan = document.getElementById('latitude');
+        const longitudeSpan = document.getElementById('longitude');
+        const errorMessageDiv = document.getElementById('errorMessage');
+        const adsSection = document.getElementById('adsSection');
+        const adsHeader = document.getElementById('adsHeader');
+        const adsContainer = document.getElementById('adsContainer');
+        const noAdsMessage = document.getElementById('noAdsMessage');
+
+        // --- Mock Business Data ---
+        // In a real app, this would come from a server/API.
+        // Steiner Ranch, TX approx coords: Lat: 30.38, Lon: -97.90
+        const mockBusinesses = [
+            {
+                id: 1,
+                name: "Steiner Ranch Steakhouse",
+                category: "Restaurant",
+                ad: "Prime Cuts & Hill Country Views! 10% off appetizers.",
+                lat: 30.388193, // Approx location
+                lon: -97.901029
+            },
+            {
+                id: 2,
+                name: "Lake Travis Zipline Adventures",
+                category: "Entertainment",
+                ad: "Soar over Lake Travis! Book online and save $5.",
+                lat: 30.4090, // Approx location further out
+                lon: -97.9390
+            },
+            {
+                id: 3,
+                name: "The Oasis on Lake Travis",
+                category: "Restaurant/Bar",
+                ad: "Sunset Capital of Texas! Happy Hour 4-6 PM.",
+                lat: 30.3865,
+                lon: -97.8742
+            },
+            {
+                id: 4,
+                name: "Riverbend Church Market",
+                category: "Shopping",
+                ad: "Fresh local produce and artisan goods every Saturday!",
+                lat: 30.3580, // South of Steiner
+                lon: -97.8000
+            },
+            {
+                id: 5,
+                name: "Hill Country Galleria",
+                category: "Shopping Mall",
+                ad: "Your one-stop shop for fashion, dining, and fun!",
+                lat: 30.3160, // Further south/east
+                lon: -97.9260
+            },
+            {
+                id: 6,
+                name: "Wild Basin Wilderness Preserve",
+                category: "Nature",
+                ad: "Explore scenic trails. Donations welcome!",
+                lat: 30.3200,
+                lon: -97.8100
+            },
+             {
+                id: 7,
+                name: "Coffee & Code Cafe",
+                category: "Cafe",
+                ad: "Fuel your projects with our special brew! Free Wi-Fi.",
+                lat: 30.3815, // Close to Steiner Ranch center
+                lon: -97.9050
+            },
+            {
+                id: 8,
+                name: "Lakeway Marina",
+                category: "Recreation",
+                ad: "Boat rentals and fishing supplies. Your adventure starts here!",
+                lat: 30.3622,
+                lon: -97.9700 // West of Steiner
+            }
+        ];
+        const SEARCH_RADIUS_KM = 10; // Search radius in kilometers
+
+        // Event listener for the button click
+        getLocationBtn.addEventListener('click', () => {
+            errorMessageDiv.classList.add('hidden');
+            errorMessageDiv.textContent = '';
+            statusP.textContent = 'Fetching location...';
+            coordinatesDiv.classList.add('hidden');
+            adsContainer.innerHTML = ''; // Clear previous ads
+            adsHeader.classList.add('hidden');
+            noAdsMessage.classList.add('hidden');
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showPosition, showError, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+            } else {
+                displayError("Geolocation is not supported by your browser.");
+            }
+        });
+
+        // Success callback function
+        function showPosition(position) {
+            statusP.textContent = 'Location found!';
+            statusP.classList.add('text-green-400');
+            statusP.classList.remove('text-purple-200');
+
+            const userLat = position.coords.latitude;
+            const userLon = position.coords.longitude;
+
+            latitudeSpan.textContent = userLat.toFixed(5);
+            longitudeSpan.textContent = userLon.toFixed(5);
+            coordinatesDiv.classList.remove('hidden');
+
+            findAndDisplayNearbyAds(userLat, userLon);
+        }
+
+        // Error callback function
+        function showError(error) {
+            statusP.textContent = 'Could not get location.';
+            statusP.classList.remove('text-green-400');
+            statusP.classList.add('text-purple-200');
+            let message = "An unknown error occurred while fetching location.";
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message = "User denied the request for Geolocation.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = "Location information is unavailable.";
+                    break;
+                case error.TIMEOUT:
+                    message = "The request to get user location timed out.";
+                    break;
+            }
+            displayError(message);
+            adsHeader.classList.add('hidden');
+            noAdsMessage.textContent = "Cannot display ads without your location.";
+            noAdsMessage.classList.remove('hidden');
+        }
+
+        // Function to display error messages
+        function displayError(message) {
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+        }
+
+        // --- Ad Finding and Display Logic ---
+
+        function findAndDisplayNearbyAds(userLat, userLon) {
+            adsContainer.innerHTML = ''; // Clear previous ads
+            const nearbyBusinesses = [];
+
+            mockBusinesses.forEach(business => {
+                const distance = calculateDistance(userLat, userLon, business.lat, business.lon);
+                if (distance <= SEARCH_RADIUS_KM) {
+                    nearbyBusinesses.push({...business, distance});
+                }
+            });
+
+            // Sort by distance (closest first)
+            nearbyBusinesses.sort((a, b) => a.distance - b.distance);
+
+            if (nearbyBusinesses.length > 0) {
+                adsHeader.classList.remove('hidden');
+                noAdsMessage.classList.add('hidden');
+                nearbyBusinesses.forEach(business => {
+                    const adElement = createAdElement(business);
+                    adsContainer.appendChild(adElement);
+                });
+            } else {
+                adsHeader.classList.remove('hidden'); // Show header even if no ads, but change text
+                adsHeader.textContent = "Nearby Businesses" // Keep generic title
+                noAdsMessage.textContent = `No businesses found within ${SEARCH_RADIUS_KM} km. Try expanding your search!`;
+                noAdsMessage.classList.remove('hidden');
+            }
+        }
+
+        function createAdElement(business) {
+            const div = document.createElement('div');
+            div.className = 'ad-card p-4 rounded-lg shadow-md text-white';
+            
+            // Truncate distance to 2 decimal places
+            const displayDistance = business.distance.toFixed(2);
+
+            div.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-xl font-semibold text-purple-300">${business.name}</h3>
+                    <span class="ad-category text-xs font-medium py-1 px-2 rounded-full">${business.category}</span>
+                </div>
+                <p class="text-sm text-gray-200 mb-2">${business.ad}</p>
+                <p class="text-xs text-purple-300/80">Distance: ${displayDistance} km away</p>
+            `;
+            return div;
+        }
+
+        /**
+         * Calculates the distance between two lat/lon points using the Haversine formula.
+         * @param {number} lat1 Latitude of point 1
+         * @param {number} lon1 Longitude of point 1
+         * @param {number} lat2 Latitude of point 2
+         * @param {number} lon2 Longitude of point 2
+         * @returns {number} Distance in kilometers
+         */
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of the Earth in kilometers
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const distance = R * c; // Distance in km
+            return distance;
+        }
+
+        function deg2rad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+    </script>
+
+</body>
+</html>
